@@ -1,0 +1,35 @@
+#!/bin/bash
+
+mem_limit=4000000
+cpu_limit=50
+while :
+do 
+pids=$(ps -o pid,user,cmd ax | grep -v PID | sort -bnr -k3 | awk '/[0-9]*/{print $1 ":" $2 ":" $4}')
+for i in $pids
+do
+	PID=$(echo $i | cut -d: -f1)
+	OWNER=$(echo $i | cut -d: -f2)
+	COMMAND=$(echo $i | cut -d: -f3)
+	MEMORY=$(pmap $PID | tail -n 1 | awk '/[0-9]K/{print $2}')
+	MEMORY_int=$(echo $MEMORY | sed 's/.$//')
+	CPU=$(ps -p $PID -o %cpu)
+	CPU_float=$(echo $CPU | awk '{ print substr ($0, 6 ) }')
+	MEMORY_int=$(echo "$MEMORY_int" | bc)
+	CPU_float=$(echo "$CPU_float" | bc)
+	CPU_int=${CPU_float%.*}
+	#sleep 1
+	if [[ $MEMORY_int -gt $mem_limit ]]
+		then
+			kill $PID
+			echo "Killed process with pid $PID, owned by $OWNER, from command $COMMAND - Memory overreached!"
+	fi
+	if [[ $CPU_int -gt $cpu_limit ]]
+		then 
+			kill $PID
+			echo "Killed process with pid $PID, owned by $OWNER, from command $COMMAND - CPU overreached!"
+	fi 
+done
+echo "Made a loop!"
+done
+
+
